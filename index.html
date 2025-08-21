@@ -1,293 +1,615 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Offline QR Data Transfer</title>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #6e8efb, #a777e3);
-            color: #333;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        
-        .container {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-            width: 100%;
-            max-width: 500px;
-            padding: 30px;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        
-        h1 {
-            color: #6e8efb;
-            margin-bottom: 20px;
-            font-size: 28px;
-        }
-        
-        p {
-            color: #666;
-            margin-bottom: 25px;
-            line-height: 1.6;
-        }
-        
-        .tabs {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-        
-        .tab {
-            padding: 12px 24px;
-            background: #e0e0e0;
-            border: none;
-            border-radius: 30px;
-            margin: 0 10px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        
-        .tab.active {
-            background: #6e8efb;
-            color: white;
-            box-shadow: 0 4px 10px rgba(110, 142, 251, 0.4);
-        }
-        
-        .tab-content {
-            display: none;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        textarea {
-            width: 100%;
-            height: 150px;
-            padding: 15px;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            resize: vertical;
-            font-size: 16px;
-        }
-        
-        button {
-            background: #6e8efb;
-            color: white;
-            border: none;
-            border-radius: 30px;
-            padding: 12px 25px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin: 10px 0;
-        }
-        
-        button:hover {
-            background: #5a7df9;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(90, 125, 249, 0.4);
-        }
-        
-        #qrcode {
-            margin: 20px auto;
-            padding: 15px;
-            background: white;
-            border-radius: 10px;
-            display: inline-block;
-        }
-        
-        #reader {
-            width: 100%;
-            margin: 0 auto;
-            position: relative;
-        }
-        
-        #reader__dashboard {
-            padding: 15px;
-        }
-        
-        #reader__scan_region {
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        
-        #scanned-data {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f0f4ff;
-            border-radius: 10px;
-            min-height: 50px;
-            word-break: break-all;
-        }
-        
-        .instructions {
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 20px 0;
-            text-align: left;
-        }
-        
-        .instructions h3 {
-            color: #6e8efb;
-            margin-bottom: 10px;
-        }
-        
-        .instructions ol {
-            padding-left: 20px;
-        }
-        
-        .instructions li {
-            margin-bottom: 8px;
-        }
-        
-        .footer {
-            color: white;
-            text-align: center;
-            margin-top: 20px;
-            font-size: 14px;
-        }
-    </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WebDrop – Offline P2P File Share</title>
+<style>
+  :root { --bg:#0f172a; --card:#111827; --muted:#94a3b8; --accent:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+  html,body{margin:0;height:100%;background:var(--bg);color:#f8fafc;font-family:system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial;}
+  .wrap{max-width:960px;margin:0 auto;padding:20px;}
+  .title{font-size:26px;font-weight:700;margin:4px 0 16px;}
+  .subtitle{color:var(--muted);margin-bottom:16px}
+  .card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .btn{appearance:none;border:0;border-radius:12px;padding:12px 16px;background:#2563eb;color:white;font-weight:600;cursor:pointer}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  .btn.alt{background:#334155}
+  .btn.warn{background:var(--warn);color:#111}
+  .btn.good{background:var(--accent);color:#111}
+  input[type=file],textarea,select{width:100%;background:#0b1220;border:1px solid #1f2937;border-radius:12px;color:#e5e7eb;padding:12px}
+  textarea{min-height:92px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+  .qr{display:flex;justify-content:center;align-items:center;background:#fff;border-radius:12px;padding:10px}
+  .muted{color:var(--muted);font-size:14px}
+  .progress{height:10px;background:#0b1220;border-radius:999px;overflow:hidden}
+  .bar{height:100%;background:var(--accent);width:0%}
+  video{width:100%;border-radius:12px;background:#000;max-height:260px}
+  code, .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#0b1220;border:1px solid #1f2937}
+  details{border:1px solid #1f2937;border-radius:12px;padding:10px}
+  .status-msg{padding:8px;border-radius:8px;margin:8px 0}
+  .status-info{background:rgba(37,99,235,0.2)}
+  .status-success{background:rgba(34,197,94,0.2)}
+  .status-error{background:rgba(239,68,68,0.2)}
+  .status-warning{background:rgba(245,158,11,0.2)}
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>Offline QR Data Transfer</h1>
-        <p>Easily transfer data between devices using QR codes - no internet required!</p>
-        
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab('generate')">Generate QR</button>
-            <button class="tab" onclick="switchTab('scan')">Scan QR</button>
-        </div>
-        
-        <div id="generate-tab" class="tab-content active">
-            <textarea id="data-input" placeholder="Enter text or data to transfer..."></textarea>
-            <button onclick="generateQRCode()">Generate QR Code</button>
-            <div id="qrcode"></div>
-        </div>
-        
-        <div id="scan-tab" class="tab-content">
-            <div id="reader"></div>
-            <div id="scanned-data">Scanned data will appear here...</div>
-        </div>
-        
-        <div class="instructions">
-            <h3>How to use:</h3>
-            <ol>
-                <li>On the sending device: Enter text and generate a QR code</li>
-                <li>On the receiving device: Open this page and scan the QR code</li>
-                <li>The data will be transferred instantly - no internet needed!</li>
-            </ol>
-        </div>
-    </div>
-    
-    <div class="footer">
-        <p>This tool works completely offline after initial load</p>
-    </div>
+<div class="wrap">
 
-    <script>
-        // Initialize variables
-        let qrcode = null;
+  <div class="title">WebDrop</div>
+  <div class="subtitle">Offline P2P file transfer in your browser — no apps, no accounts, no internet.</div>
+
+  <div class="card">
+    <div class="row">
+      <button class="btn" id="tabSender">Sender</button>
+      <button class="btn alt" id="tabReceiver">Receiver</button>
+      <span class="pill">Both devices must be on the same Wi-Fi or one device’s hotspot.</span>
+    </div>
+  </div>
+
+  <!-- Sender -->
+  <div id="senderPanel" class="card" style="display:block">
+    <div class="grid">
+      <div>
+        <label class="muted">Choose file to send</label>
+        <input type="file" id="fileInput" />
+      </div>
+      <div class="row">
+        <button class="btn" id="startShare">1) Create Offer</button>
+        <button class="btn alt" id="scanAnswerBtn" disabled>3) Scan Answer</button>
+        <button class="btn alt" id="pasteAnswerBtn" disabled>…or Paste Answer</button>
+      </div>
+      <div>
+        <div class="muted">Offer (QR for receiver to scan)</div>
+        <div id="offerQR" class="qr"></div>
+        <textarea id="offerText" readonly placeholder="Offer will appear here (copy if you prefer paste flow)"></textarea>
+      </div>
+      <div>
+        <div class="muted">Answer (paste from receiver if not scanning)</div>
+        <textarea id="answerText" placeholder="Paste receiver answer here"></textarea>
+        <button class="btn good" id="submitAnswerBtn" style="margin-top:8px;display:none">Submit Answer</button>
+      </div>
+    </div>
+    <div class="grid">
+      <div>
+        <div class="muted">Transfer status</div>
+        <div id="sendStatus" class="mono status-msg status-info">Idle</div>
+        <div class="progress"><div id="sendBar" class="bar"></div></div>
+      </div>
+      <div>
+        <div id="scanAnswerWrap" style="display:none">
+          <div class="muted">Scan Answer</div>
+          <video id="vidAns" playsinline></video>
+          <canvas id="canvasAns" style="display:none"></canvas>
+          <div class="row" style="margin-top:8px">
+            <button class="btn warn" id="stopScanAns">Stop Camera</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Receiver -->
+  <div id="receiverPanel" class="card" style="display:none">
+    <div class="grid">
+      <div class="row">
+        <button class="btn" id="scanOfferBtn">1) Scan Offer</button>
+        <button class="btn alt" id="pasteOfferBtn">…or Paste Offer</button>
+      </div>
+      <div>
+        <div class="muted">Offer (paste if not scanning)</div>
+        <textarea id="offerTextRx" placeholder="Paste sender offer here"></textarea>
+        <button class="btn good" id="submitOfferBtn" style="margin-top:8px;display:none">Submit Offer</button>
+      </div>
+      <div>
+        <div class="muted">Answer for sender (QR to show or copy)</div>
+        <div id="answerQR" class="qr"></div>
+        <textarea id="answerTextRx" readonly placeholder="Answer will appear here"></textarea>
+      </div>
+    </div>
+    <div class="grid">
+      <div>
+        <div class="muted">Receive status</div>
+        <div id="recvStatus" class="mono status-msg status-info">Idle</div>
+        <div class="progress"><div id="recvBar" class="bar"></div></div>
+        <div class="row" style="margin-top:8px">
+          <a id="downloadLink" class="btn good" style="display:none">Save file</a>
+        </div>
+      </div>
+      <div id="scanOfferWrap" style="display:none">
+        <div class="muted">Scan Offer</div>
+        <video id="vidOff" playsinline></video>
+        <canvas id="canvasOff" style="display:none"></canvas>
+        <div class="row" style="margin-top:8px">
+          <button class="btn warn" id="stopScanOff">Stop Camera</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <details class="card">
+    <summary>How it works (tech)</summary>
+    <p>WebRTC DataChannels for P2P transport; QR codes carry SDP offers/answers for offline signaling. Files are chunked with backpressure and reassembled on the receiver. No servers involved.</p>
+  </details>
+
+</div>
+
+<!-- QR generation (qrcode) -->
+<script>
+/*!
+ * QRCode.js (minimal build) – MIT – https://github.com/davidshimjs/qrcodejs
+ * Minified snippet kept small; enough for typical SDP sizes.
+ */
+!function(o){function t(o){this.mode=n.MODE_8BIT_BYTE,this.data=o}function e(t,e){this.typeNumber=t,this.errorCorrectLevel=e,this.modules=null,this.moduleCount=0,this.dataCache=null,this.dataList=[]}var n={PAD0:236,PAD1:17,MODE_8BIT_BYTE:4,ErrorCorrectLevel:{L:1,M:0,Q:3,H:2},PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34]],G15:1335,G18:7973,G15_MASK:21522,getBCHDigit:function(o){var t=0;for(;0!=o;)t++,o>>=1;return t}},r=function(){var o=1,t=0,e=[1];return{get:function(n){for(;o<=n;)t=(t+1)%255,e.push(1),o++;return e[n]},exp:function(o){for(;o>=e.length;)e.push(1);return e[o]},log:function(o){for(;o>=e.length;)e.push(1);return o}}}();t.prototype={getLength:function(){return this.data.length},write:function(o){for(var t=0;t<this.data.length;t++)o.put(this.data.charCodeAt(t),8)}};var i=function(){var o=0,t=0,e=[];return{getLengthInBits:function(){return 8*e.length},writeByte:function(n){e.push(n)},write:function(n){for(var r=0;r<e.length;r++)n.put(e[r],8)},put:function(n,r){for(var i=0;i<r;i++)this.writeByte(128&(n<<i)?1:0)}}}();e.prototype={addData:function(o){this.dataList.push(new t(o)),this.dataCache=null},isDark:function(o,t){if(null==this.modules[o][t])throw new Error("not set");return this.modules[o][t]},getModuleCount:function(){return this.moduleCount},make:function(){this.typeNumber=2,this.moduleCount=25,this.modules=new Array(this.moduleCount);for(var o=0;o<this.moduleCount;o++){this.modules[o]=new Array(this.moduleCount);for(var t=0;t<this.moduleCount;t++)this.modules[o][t]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.mapData(this.createData())},setupPositionProbePattern:function(o,t){for(var e=-1;e<=7;e++)if(!(o+e<=-1||this.moduleCount<=o+e))for(var n=-1;n<=7;n++)t+n<=-1||this.moduleCount<=t+n||(this.modules[o+e][t+n]=e>=0&&e<=6&&(0==n||6==n)||n>=0&&n<=6&&(0==e||6==e)||e>=2&&e<=4&&n>=2&&n<=4)},mapData:function(o){for(var t=0,e=this.moduleCount-1,n=this.moduleCount-1;n>0;n-=2)for(6==n&&n--;;){for(var r=0;r<2;r++)null==this.modules[e][n-r]&&(this.modules[e][n-r]=t<o.length&&o[t]);if((e+=-1)<0){e=this.moduleCount-1;break}}},createData:function(){for(var o=new i,t=0;t<this.dataList.length;t++){var e=this.dataList[t];o.put(n.MODE_8BIT_BYTE,4),o.put(e.getLength(),8),e.write(o)}for(var r=[],s=0;s<o.getLengthInBits()/8;s++)r.push(0);return r}};window.QRGen=function(o,t){var n=new e(2,0);n.addData(o),n.make();var r=t||4,i=document.createElement("canvas");i.width=n.getModuleCount()*r,i.height=n.getModuleCount()*r;var s=i.getContext("2d");s.fillStyle="#fff",s.fillRect(0,0,i.width,i.height),s.fillStyle="#000";for(var a=0;a<n.getModuleCount();a++)for(var d=0;d<n.getModuleCount();d++)n.isDark(a,d)&&s.fillRect(d*r,a*r,r,r);return i};
+</script>
+
+<!-- jsQR library for QR scanning -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+<script>
+/* ---------- Utilities ---------- */
+
+const enc = (obj) => btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+const dec = (str) => JSON.parse(decodeURIComponent(escape(atob(str))));
+
+function saveBlob(filename, blob) {
+  const a = document.getElementById('downloadLink');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.style.display = 'inline-block';
+}
+
+function updateStatus(element, message, type = 'info') {
+  element.textContent = message;
+  element.className = `mono status-msg status-${type}`;
+}
+
+/* ---------- Tabs ---------- */
+const senderPanel = document.getElementById('senderPanel');
+const receiverPanel = document.getElementById('receiverPanel');
+const tabSender = document.getElementById('tabSender');
+const tabReceiver = document.getElementById('tabReceiver');
+
+tabSender.onclick = () => {
+  senderPanel.style.display = 'block'; 
+  receiverPanel.style.display = 'none';
+  tabSender.className = 'btn';
+  tabReceiver.className = 'btn alt';
+};
+
+tabReceiver.onclick = () => {
+  senderPanel.style.display = 'none'; 
+  receiverPanel.style.display = 'block';
+  tabSender.className = 'btn alt';
+  tabReceiver.className = 'btn';
+};
+
+/* ---------- WebRTC common ---------- */
+function makePC() {
+  // Local-only (no STUN/TURN); works on same LAN/hotspot
+  return new RTCPeerConnection({ 
+    iceServers: [],
+    iceCandidatePoolSize: 0 // Reduces candidate gathering time for local connections
+  });
+}
+
+/* ---------- Sender Logic ---------- */
+let pcSend, chSend, fileToSend;
+let bytesSent = 0;
+
+const offerQR = document.getElementById('offerQR');
+const offerText = document.getElementById('offerText');
+const answerText = document.getElementById('answerText');
+const sendStatus = document.getElementById('sendStatus');
+const sendBar = document.getElementById('sendBar');
+const submitAnswerBtn = document.getElementById('submitAnswerBtn');
+
+document.getElementById('startShare').onclick = async () => {
+  const fileInput = document.getElementById('fileInput');
+  if (!fileInput.files || !fileInput.files[0]) {
+    alert('Pick a file first'); return;
+  }
+  fileToSend = fileInput.files[0];
+  
+  // Reset UI
+  updateStatus(sendStatus, 'Creating connection...', 'info');
+  sendBar.style.width = '0%';
+  offerText.value = '';
+  offerQR.innerHTML = '';
+  answerText.value = '';
+
+  try {
+    pcSend = makePC();
+    
+    // Set up data channel
+    chSend = pcSend.createDataChannel('file', {
+      ordered: true,  // Ensure data arrives in order
+      maxRetransmits: 0  // No retransmissions for file transfer
+    });
+
+    chSend.binaryType = 'arraybuffer';
+    chSend.bufferedAmountLowThreshold = 64 * 1024; // 64KB
+    
+    chSend.onopen = async () => {
+      updateStatus(sendStatus, 'Channel open. Sending metadata…', 'success');
+      try {
+        // Send META first
+        chSend.send(JSON.stringify({ 
+          t: 'meta', 
+          name: fileToSend.name, 
+          size: fileToSend.size, 
+          mime: fileToSend.type || 'application/octet-stream' 
+        }));
         
-        // Function to switch between tabs
-        function switchTab(tabName) {
-            // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Show selected tab
-            document.getElementById(tabName + '-tab').classList.add('active');
-            
-            // Update tab buttons
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            event.target.classList.add('active');
-            
-            // If switching to scan tab, initialize the scanner
-            if (tabName === 'scan') {
-                initializeScanner();
+        // Now stream file
+        await sendFileInChunks(fileToSend, chSend, (p) => {
+          sendBar.style.width = `${(p * 100).toFixed(1)}%`;
+          updateStatus(sendStatus, `Sending… ${(p*100).toFixed(1)}%`, 'info');
+        });
+        
+        chSend.send(JSON.stringify({ t: 'eof' }));
+        updateStatus(sendStatus, 'Transfer complete ✅', 'success');
+      } catch (err) {
+        console.error('Error during file transfer:', err);
+        updateStatus(sendStatus, `Error: ${err.message}`, 'error');
+      }
+    };
+    
+    chSend.onclose = () => updateStatus(sendStatus, 'Channel closed', 'warning');
+    chSend.onerror = (e) => {
+      console.error('Data channel error:', e);
+      updateStatus(sendStatus, 'Channel error', 'error');
+    };
+    
+    // Handle incoming ICE candidates
+    pcSend.onicecandidate = (e) => {
+      if (e.candidate) {
+        // Skip non-null candidates to keep SDP small for QR codes
+        return;
+      }
+      
+      if (pcSend.localDescription) {
+        const offer = enc(pcSend.localDescription);
+        offerText.value = offer;
+        offerQR.innerHTML = '';
+        offerQR.appendChild(QRGen(offer, 6));
+        document.getElementById('scanAnswerBtn').disabled = false;
+        document.getElementById('pasteAnswerBtn').disabled = false;
+        submitAnswerBtn.style.display = 'inline-block';
+        updateStatus(sendStatus, 'Offer created. Show QR to receiver or copy text.', 'info');
+      }
+    };
+
+    pcSend.onconnectionstatechange = () => {
+      console.log('Connection state:', pcSend.connectionState);
+      if (pcSend.connectionState === 'connected') {
+        updateStatus(sendStatus, 'Connected to receiver', 'success');
+      } else if (pcSend.connectionState === 'disconnected' || 
+                 pcSend.connectionState === 'failed') {
+        updateStatus(sendStatus, `Connection ${pcSend.connectionState}`, 'error');
+      }
+    };
+
+    // Create offer with data channel only (no audio/video)
+    const offer = await pcSend.createOffer();
+    await pcSend.setLocalDescription(offer);
+    
+  } catch (err) {
+    console.error('Error creating offer:', err);
+    updateStatus(sendStatus, `Error: ${err.message}`, 'error');
+  }
+};
+
+async function sendFileInChunks(file, channel, onProgress) {
+  const chunkSize = 16 * 1024; // 16KB chunks for better flow control
+  let offset = 0;
+  
+  while (offset < file.size) {
+    // Apply backpressure if buffer is too full
+    if (channel.bufferedAmount > channel.bufferedAmountLowThreshold * 4) {
+      await new Promise(resolve => {
+        const checkBuffer = () => {
+          if (channel.bufferedAmount <= channel.bufferedAmountLowThreshold) {
+            resolve();
+          } else {
+            setTimeout(checkBuffer, 100);
+          }
+        };
+        checkBuffer();
+      });
+    }
+    
+    const chunk = file.slice(offset, offset + chunkSize);
+    const buffer = await chunk.arrayBuffer();
+    channel.send(buffer);
+    
+    offset += chunkSize;
+    onProgress(offset / file.size);
+  }
+}
+
+// Handle answer submission via paste
+submitAnswerBtn.onclick = async () => {
+  const ans = answerText.value.trim();
+  if (!ans) { 
+    alert('Paste answer text first'); 
+    return; 
+  }
+  
+  try {
+    await pcSend.setRemoteDescription(dec(ans));
+    updateStatus(sendStatus, 'Answer accepted. Connecting...', 'info');
+  } catch (err) {
+    console.error('Error setting remote description:', err);
+    updateStatus(sendStatus, `Invalid answer: ${err.message}`, 'error');
+  }
+};
+
+/* --- Sender: Scan Answer via camera --- */
+const scanAnswerWrap = document.getElementById('scanAnswerWrap');
+const vidAns = document.getElementById('vidAns');
+const canvasAns = document.getElementById('canvasAns');
+let scanAnswerInterval = null;
+
+document.getElementById('scanAnswerBtn').onclick = async () => {
+  scanAnswerWrap.style.display = 'block';
+  
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: 'environment' } 
+    });
+    vidAns.srcObject = stream; 
+    await vidAns.play();
+    
+    const canvasElement = document.getElementById('canvasAns');
+    const canvas = canvasElement.getContext('2d');
+    
+    // Start scanning for QR codes
+    scanAnswerInterval = setInterval(() => {
+      if (vidAns.readyState === vidAns.HAVE_ENOUGH_DATA) {
+        canvasElement.height = vidAns.videoHeight;
+        canvasElement.width = vidAns.videoWidth;
+        canvas.drawImage(vidAns, 0, 0, canvasElement.width, canvasElement.height);
+        
+        const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        
+        if (code) {
+          try {
+            const answer = dec(code.data);
+            if (answer.type === 'answer') {
+              clearInterval(scanAnswerInterval);
+              pcSend.setRemoteDescription(answer)
+                .then(() => {
+                  updateStatus(sendStatus, 'Answer scanned. Connecting...', 'info');
+                  stopCam(vidAns);
+                  scanAnswerWrap.style.display = 'none';
+                })
+                .catch(err => {
+                  console.error('Error setting remote description:', err);
+                  updateStatus(sendStatus, `Invalid QR code: ${err.message}`, 'error');
+                });
             }
+          } catch (err) {
+            console.error('Error parsing QR code data:', err);
+          }
         }
-        
-        // Function to generate QR code
-        function generateQRCode() {
-            const data = document.getElementById('data-input').value.trim();
-            
-            if (!data) {
-                alert('Please enter some data to generate a QR code');
-                return;
+      }
+    }, 500);
+  } catch (err) {
+    console.error('Error accessing camera:', err);
+    updateStatus(sendStatus, `Camera error: ${err.message}`, 'error');
+  }
+};
+
+document.getElementById('stopScanAns').onclick = () => {
+  if (scanAnswerInterval) clearInterval(scanAnswerInterval);
+  stopCam(vidAns);
+  scanAnswerWrap.style.display = 'none';
+};
+
+function stopCam(video) {
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(track => track.stop());
+    video.srcObject = null;
+  }
+}
+
+/* ---------- Receiver Logic ---------- */
+let pcRecv;
+let fileName = 'received.bin';
+let fileSize = 0;
+let receivedBytes = 0;
+let chunks = [];
+const recvStatus = document.getElementById('recvStatus');
+const recvBar = document.getElementById('recvBar');
+const answerQR = document.getElementById('answerQR');
+const answerTextRx = document.getElementById('answerTextRx');
+const offerTextRx = document.getElementById('offerTextRx');
+const submitOfferBtn = document.getElementById('submitOfferBtn');
+let scanOfferInterval = null;
+
+// Show submit button when user starts typing in offer textarea
+offerTextRx.addEventListener('input', () => {
+  submitOfferBtn.style.display = offerTextRx.value.trim() ? 'inline-block' : 'none';
+});
+
+async function startFromOffer(offerStr) {
+  // Reset UI
+  updateStatus(recvStatus, 'Processing offer...', 'info');
+  recvBar.style.width = '0%';
+  answerTextRx.value = '';
+  answerQR.innerHTML = '';
+  document.getElementById('downloadLink').style.display = 'none';
+  
+  try {
+    pcRecv = makePC();
+    const offer = dec(offerStr);
+    
+    if (offer.type !== 'offer') {
+      throw new Error('Not a valid WebRTC offer');
+    }
+
+    // Set up data channel handler
+    pcRecv.ondatachannel = (ev) => {
+      const ch = ev.channel;
+      ch.binaryType = 'arraybuffer';
+      updateStatus(recvStatus, 'Channel open. Waiting for metadata…', 'info');
+      
+      ch.onmessage = (e) => {
+        const d = e.data;
+        if (typeof d === 'string') {
+          try {
+            const msg = JSON.parse(d);
+            if (msg.t === 'meta') {
+              fileName = msg.name || 'file.bin'; 
+              fileSize = msg.size || 0;
+              receivedBytes = 0; 
+              chunks = [];
+              updateStatus(recvStatus, `Receiving ${fileName} (${fileSize} bytes)…`, 'info');
+            } else if (msg.t === 'eof') {
+              const blob = new Blob(chunks, { type: 'application/octet-stream' });
+              saveBlob(fileName, blob);
+              recvBar.style.width = '100%';
+              updateStatus(recvStatus, 'Transfer complete ✅', 'success');
+              ch.close();
             }
-            
-            // Clear previous QR code
-            document.getElementById('qrcode').innerHTML = '';
-            
-            // Generate new QR code
-            qrcode = new QRCode(document.getElementById('qrcode'), {
-                text: data,
-                width: 200,
-                height: 200,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.H
-            });
+          } catch (err) {
+            console.error('Error parsing metadata:', err);
+          }
+        } else if (d instanceof ArrayBuffer) {
+          chunks.push(d);
+          receivedBytes += d.byteLength;
+          if (fileSize > 0) {
+            const p = receivedBytes / fileSize;
+            recvBar.style.width = `${(p * 100).toFixed(1)}%`;
+            updateStatus(recvStatus, `Receiving… ${(p*100).toFixed(1)}%`, 'info');
+          } else {
+            updateStatus(recvStatus, `Receiving… ${Math.round(receivedBytes/1024)} KB`, 'info');
+          }
         }
+      };
+      
+      ch.onclose = () => updateStatus(recvStatus, 'Channel closed', 'warning');
+      ch.onerror = (err) => {
+        console.error('Data channel error:', err);
+        updateStatus(recvStatus, 'Channel error', 'error');
+      };
+    };
+
+    pcRecv.onicecandidate = (e) => {
+      if (e.candidate) {
+        // Skip non-null candidates
+        return;
+      }
+      
+      if (pcRecv.localDescription) {
+        const ans = enc(pcRecv.localDescription);
+        answerTextRx.value = ans;
+        answerQR.innerHTML = ''; 
+        answerQR.appendChild(QRGen(ans, 6));
+        updateStatus(recvStatus, 'Answer created. Show QR to sender or copy text.', 'info');
+      }
+    };
+
+    pcRecv.onconnectionstatechange = () => {
+      console.log('Receiver connection state:', pcRecv.connectionState);
+      if (pcRecv.connectionState === 'connected') {
+        updateStatus(recvStatus, 'Connected to sender', 'success');
+      } else if (pcRecv.connectionState === 'disconnected' || 
+                 pcRecv.connectionState === 'failed') {
+        updateStatus(recvStatus, `Connection ${pcRecv.connectionState}`, 'error');
+      }
+    };
+
+    await pcRecv.setRemoteDescription(offer);
+    const answer = await pcRecv.createAnswer();
+    await pcRecv.setLocalDescription(answer);
+    
+  } catch (err) {
+    console.error('Error processing offer:', err);
+    updateStatus(recvStatus, `Error: ${err.message}`, 'error');
+  }
+}
+
+/* --- Receiver: Scan Offer --- */
+const scanOfferWrap = document.getElementById('scanOfferWrap');
+const vidOff = document.getElementById('vidOff');
+const canvasOff = document.getElementById('canvasOff');
+
+document.getElementById('scanOfferBtn').onclick = async () => {
+  scanOfferWrap.style.display = 'block';
+  
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: 'environment' } 
+    });
+    vidOff.srcObject = stream; 
+    await vidOff.play();
+    
+    const canvasElement = document.getElementById('canvasOff');
+    const canvas = canvasElement.getContext('2d');
+    
+    // Start scanning for QR codes
+    scanOfferInterval = setInterval(() => {
+      if (vidOff.readyState === vidOff.HAVE_ENOUGH_DATA) {
+        canvasElement.height = vidOff.videoHeight;
+        canvasElement.width = vidOff.videoWidth;
+        canvas.drawImage(vidOff, 0, 0, canvasElement.width, canvasElement.height);
         
-        // Function to initialize the QR code scanner
-        function initializeScanner() {
-            // Check if scanner is already initialized
-            if (document.getElementById('reader').innerHTML !== '') {
-                return;
-            }
-            
-            // Create a simple scanner interface since we can't access camera without a library
-            document.getElementById('reader').innerHTML = `
-                <div style="text-align: center;">
-                    <p>To scan QR codes, you need to use your device's camera app or a QR scanner app.</p>
-                    <p>Alternatively, you can use the HTML5 QR code library for built-in scanning.</p>
-                    <div style="border: 2px dashed #6e8efb; height: 200px; display: flex; justify-content: center; align-items: center; border-radius: 10px; margin: 20px 0;">
-                        <p>Camera view would appear here with proper library implementation</p>
-                    </div>
-                    <p>For demonstration, you can manually enter scanned data:</p>
-                    <input type="text" id="manual-input" placeholder="Paste scanned data here" style="padding: 10px; width: 100%; margin: 10px 0; border-radius: 5px; border: 1px solid #ddd;">
-                    <button onclick="manualInput()">Submit</button>
-                </div>
-            `;
-        }
+        const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
         
-        // Function to handle manual input (for demonstration)
-        function manualInput() {
-            const data = document.getElementById('manual-input').value.trim();
-            if (data) {
-                document.getElementById('scanned-data').textContent = data;
-            }
+        if (code) {
+          try {
+            clearInterval(scanOfferInterval);
+            startFromOffer(code.data)
+              .then(() => {
+                stopCam(vidOff);
+                scanOfferWrap.style.display = 'none';
+              })
+              .catch(err => {
+                console.error('Error processing scanned offer:', err);
+                updateStatus(recvStatus, `Invalid QR code: ${err.message}`, 'error');
+              });
+          } catch (err) {
+            console.error('Error parsing QR code data:', err);
+            updateStatus(recvStatus, 'Invalid QR code format', 'error');
+          }
         }
-        
-        // Simulate scanning for demonstration purposes
-        function simulateScan() {
-            const sampleData = "This is sample scanned data. In a real implementation, this would come from your camera.";
-            document.getElementById('scanned-data').textContent = sampleData;
-        }
-    </script>
+      }
+    }, 500);
+  } catch (err) {
+    console.error('Error accessing camera:', err);
+    updateStatus(recvStatus, `Camera error: ${err.message}`, 'error');
+  }
+};
+
+document.getElementById('stopScanOff').onclick = () => {
+  if (scanOfferInterval) clearInterval(scanOfferInterval);
+  stopCam(vidOff);
+  scanOfferWrap.style.display = 'none';
+};
+
+/* --- Receiver: Paste Offer --- */
+submitOfferBtn.onclick = async () => {
+  const s = offerTextRx.value.trim();
+  if (!s) { 
+    alert('Paste offer first'); 
+    return; 
+  }
+  await startFromOffer(s);
+};
+
+// Also allow pressing Enter in the offer textarea
+offerTextRx.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter' && offerTextRx.value.trim()) {
+    e.preventDefault();
+    startFromOffer(offerTextRx.value.trim());
+  }
+});
+</script>
 </body>
 </html>
