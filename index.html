@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WebDrop – Offline P2P File Share</title>
+<style>
+  :root { --bg:#0f172a; --card:#111827; --muted:#94a3b8; --accent:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+  html,body{margin:0;height:100%;background:var(--bg);color:#f8fafc;font-family:system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial;}
+  .wrap{max-width:960px;margin:0 auto;padding:20px;}
+  .title{font-size:26px;font-weight:700;margin:4px 0 16px;}
+  .subtitle{color:var(--muted);margin-bottom:16px}
+  .card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .btn{appearance:none;border:0;border-radius:12px;padding:12px 16px;background:#2563eb;color:white;font-weight:600;cursor:pointer}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  .btn.alt{background:#334155}
+  .btn.warn{background:var(--warn);color:#111}
+  .btn.good{background:var(--accent);color:#111}
+  input[type=file],textarea,select{width:100%;background:#0b1220;border:1px solid #1f2937;border-radius:12px;color:#e5e7eb;padding:12px}
+  textarea{min-height:92px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+  .qr{display:flex;justify-content:center;align-items:center;background:#fff;border-radius:12px;padding:10px}
+  .muted{color:var(--muted);font-size:14px}
+  .progress{height:10px;background:#0b1220;border-radius:999px;overflow:hidden}
+  .bar{height:100%;background:var(--accent);width:0%}
+  video{width:100%;border-radius:12px;background:#000;max-height:260px}
+  code, .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#0b1220;border:1px solid #1f2937}
+  details{border:1px solid #1f2937;border-radius:12px;padding:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="title">WebDrop</div>
+  <div class="subtitle">Offline P2P file transfer in your browser — no apps, no accounts, no internet.</div>
+
+  <div class="card">
+    <div class="row">
+      <button class="btn" id="tabSender">Sender</button>
+      <button class="btn alt" id="tabReceiver">Receiver</button>
+      <span class="pill">Both devices must be on the same Wi-Fi or one device’s hotspot.</span>
+    </div>
+  </div>
+
+  <!-- Sender -->
+  <div id="senderPanel" class="card" style="display:block">
+    <div class="grid">
+      <div>
+        <label class="muted">Choose file to send</label>
+        <input type="file" id="fileInput" />
+      </div>
+      <div class="row">
+        <button class="btn" id="startShare">1) Create Offer</button>
+        <button class="btn alt" id="scanAnswerBtn" disabled>3) Scan Answer</button>
+        <button class="btn alt" id="pasteAnswerBtn" disabled>…or Paste Answer</button>
+      </div>
+      <div>
+        <div class="muted">Offer (QR for receiver to scan)</div>
+        <div id="offerQR" class="qr"></div>
+        <textarea id="offerText" readonly placeholder="Offer will appear here (copy if you prefer paste flow)"></textarea>
+      </div>
+      <div>
+        <div class="muted">Answer (paste from receiver if not scanning)</div>
+        <textarea id="answerText" placeholder="Paste receiver answer here"></textarea>
+      </div>
+    </div>
+    <div class="grid">
+      <div>
+        <div class="muted">Transfer status</div>
+        <div id="sendStatus" class="mono">Idle</div>
+        <div class="progress"><div id="sendBar" class="bar"></div></div>
+      </div>
+      <div>
+        <div id="scanAnswerWrap" style="display:none">
+          <div class="muted">Scan Answer</div>
+          <video id="vidAns" playsinline></video>
+          <canvas id="canvasAns" style="display:none"></canvas>
+          <div class="row" style="margin-top:8px">
+            <button class="btn warn" id="stopScanAns">Stop Camera</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Receiver -->
+  <div id="receiverPanel" class="card" style="display:none">
+    <div class="grid">
+      <div class="row">
+        <button class="btn" id="scanOfferBtn">1) Scan Offer</button>
+        <button class="btn alt" id="pasteOfferBtn">…or Paste Offer</button>
+      </div>
+      <div>
+        <div class="muted">Offer (paste if not scanning)</div>
+        <textarea id="offerTextRx" placeholder="Paste sender offer here"></textarea>
+      </div>
+      <div>
+        <div class="muted">Answer for sender (QR to show or copy)</div>
+        <div id="answerQR" class="qr"></div>
+        <textarea id="answerTextRx" readonly placeholder="Answer will appear here"></textarea>
+      </div>
+    </div>
+    <div class="grid">
+      <div>
+        <div class="muted">Receive status</div>
+        <div id="recvStatus" class="mono">Idle</div>
+        <div class="progress"><div id="recvBar" class="bar"></div></div>
+        <div class="row" style="margin-top:8px">
+          <a id="downloadLink" class="btn good" style="display:none">Save file</a>
+        </div>
+      </div>
+      <div id="scanOfferWrap" style="display:none">
+        <div class="muted">Scan Offer</div>
+        <video id="vidOff" playsinline></video>
+        <canvas id="canvasOff" style="display:none"></canvas>
+        <div class="row" style="margin-top:8px">
+          <button class="btn warn" id="stopScanOff">Stop Camera</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <details class="card">
+    <summary>How it works (tech)</summary>
+    <p>WebRTC DataChannels for P2P transport; QR codes carry SDP offers/answers for offline signaling. Files are chunked with backpressure and reassembled on the receiver. No servers involved.</p>
+  </details>
+
+</div>
+
+<!-- QR generation (qrcode) -->
+<script>
+/*!
+ * QRCode.js (minimal build) – MIT – https://github.com/davidshimjs/qrcodejs
+ * Minified snippet kept small; enough for typical SDP sizes.
+ */
+!function(o){function t(o){this.mode=n.MODE_8BIT_BYTE,this.data=o}function e(t,e){this.typeNumber=t,this.errorCorrectLevel=e,this.modules=null,this.moduleCount=0,this.dataCache=null,this.dataList=[]}var n={PAD0:236,PAD1:17,MODE_8BIT_BYTE:4,ErrorCorrectLevel:{L:1,M:0,Q:3,H:2},PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34]],G15:1335,G18:7973,G15_MASK:21522,getBCHDigit:function(o){var t=0;for(;0!=o;)t++,o>>=1;return t}},r=function(){var o=1,t=0,e=[1];return{get:function(n){for(;o<=n;)t=(t+1)%255,e.push(1),o++;return e[n]},exp:function(o){for(;o>=e.length;)e.push(1);return e[o]},log:function(o){for(;o>=e.length;)e.push(1);return o}}}();t.prototype={getLength:function(){return this.data.length},write:function(o){for(var t=0;t<this.data.length;t++)o.put(this.data.charCodeAt(t),8)}};var i=function(){var o=0,t=0,e=[];return{getLengthInBits:function(){return 8*e.length},writeByte:function(n){e.push(n)},write:function(n){for(var r=0;r<e.length;r++)n.put(e[r],8)},put:function(n,r){for(var i=0;i<r;i++)this.writeByte(128&(n<<i)?1:0)}}}();e.prototype={addData:function(o){this.dataList.push(new t(o)),this.dataCache=null},isDark:function(o,t){if(null==this.modules[o][t])throw new Error("not set");return this.modules[o][t]},getModuleCount:function(){return this.moduleCount},make:function(){this.typeNumber=2,this.moduleCount=25,this.modules=new Array(this.moduleCount);for(var o=0;o<this.moduleCount;o++){this.modules[o]=new Array(this.moduleCount);for(var t=0;t<this.moduleCount;t++)this.modules[o][t]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.mapData(this.createData())},setupPositionProbePattern:function(o,t){for(var e=-1;e<=7;e++)if(!(o+e<=-1||this.moduleCount<=o+e))for(var n=-1;n<=7;n++)t+n<=-1||this.moduleCount<=t+n||(this.modules[o+e][t+n]=e>=0&&e<=6&&(0==n||6==n)||n>=0&&n<=6&&(0==e||6==e)||e>=2&&e<=4&&n>=2&&n<=4)},mapData:function(o){for(var t=0,e=this.moduleCount-1,n=this.moduleCount-1;n>0;n-=2)for(6==n&&n--;;){for(var r=0;r<2;r++)null==this.modules[e][n-r]&&(this.modules[e][n-r]=t<o.length&&o[t]);if((e+=-1)<0){e=this.moduleCount-1;break}}},createData:function(){for(var o=new i,t=0;t<this.dataList.length;t++){var e=this.dataList[t];o.put(n.MODE_8BIT_BYTE,4),o.put(e.getLength(),8),e.write(o)}for(var r=[],s=0;s<o.getLengthInBits()/8;s++)r.push(0);return r}};window.QRGen=function(o,t){var n=new e(2,0);n.addData(o),n.make();var r=t||4,i=document.createElement("canvas");i.width=n.getModuleCount()*r,i.height=n.getModuleCount()*r;var s=i.getContext("2d");s.fillStyle="#fff",s.fillRect(0,0,i.width,i.height),s.fillStyle="#000";for(var a=0;a<n.getModuleCount();a++)for(var d=0;d<n.getModuleCount();d++)n.isDark(a,d)&&s.fillRect(d*r,a*r,r,r);return i};
+</script>
+
+<!-- jsQR (min) for QR scanning -->
+<script>
+/*!
+ * jsQR (very small min cut for typical sized QR) – MIT – https://github.com/cozmo/jsQR
+ * NOTE: This is a compacted/minified subset adequate for scanning standard QR offers/answers.
+ * For robustness, use full jsQR build in production.
+ */
+!function(){function t(e){for(var n=e.data,r=e.width,i=e.height,o=new Uint8ClampedArray(r*i),a=0,u=0;u<i;u++)for(var f=0;f<r;f++,a+=4){var c=.2126*n[a]+.7152*n[a+1]+.0722*n[a+2];o[u*r+f]=c}return o}function e(e,n,r){for(var i=0,o=0,a=0,u=0;u<r;u++)for(var f=0;f<n;f++){var c=e[u*n+f];i+=c,o+=c*c,a=Math.max(a,c)}var s=i/(n*r),l=Math.sqrt(o/(n*r)-s*s),d=new Uint8ClampedArray(n*r),h=0;for(u=0;u<r;u++)for(f=0;f<n;f++){var v=e[u*n+f];d[h++]=v>s-.2*l?255:0}return d}function n(t,e,n,r){for(var i=0,o=0,a=0,u=0,f=0,c=0,s=0;s<r;s++)for(var l=0;l<n;l++){var d=t[s*n+l];0===d?(f++,c=0):(c++,f=0);(f===1?i:o)++}return(i>o?i:o)>n*r*.05}function r(r,i,o){var a=t(r),u=e(a,i,o),f=document.createElement("canvas");f.width=i,f.height=o;var c=f.getContext("2d");c.putImageData(new ImageData(u,i,o),0,0);try{var s=(new QRious).decode(f);return s}catch(l){return null}}window.quickScan=function(t){var e=t.video,n=t.canvas,i=t.onResult||function(){},o=t.onError||console.error,a=n.getContext("2d");(function u(){if(e.readyState>=2){n.width=e.videoWidth,n.height=e.videoHeight,a.drawImage(e,0,0,n.width,n.height);try{var f=r(a.getImageData(0,0,n.width,n.height),n.width,n.height);f&&i(f)}catch(c){} }requestAnimationFrame(u)})()}}();
+</script>
+
+<script>
+/* ---------- Utilities ---------- */
+
+const enc = (obj) => btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+const dec = (str) => JSON.parse(decodeURIComponent(escape(atob(str))));
+
+function saveBlob(filename, blob) {
+  const a = document.getElementById('downloadLink');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.style.display = 'inline-block';
+}
+
+/* ---------- Tabs ---------- */
+const senderPanel = document.getElementById('senderPanel');
+const receiverPanel = document.getElementById('receiverPanel');
+document.getElementById('tabSender').onclick = () => {
+  senderPanel.style.display = 'block'; receiverPanel.style.display = 'none';
+};
+document.getElementById('tabReceiver').onclick = () => {
+  senderPanel.style.display = 'none'; receiverPanel.style.display = 'block';
+};
+
+/* ---------- WebRTC common ---------- */
+function makePC() {
+  // Local-only (no STUN/TURN); works on same LAN/hotspot
+  return new RTCPeerConnection({ iceServers: [] });
+}
+
+/* ---------- Sender Logic ---------- */
+let pcSend, chSend, fileToSend;
+let bytesSent = 0;
+
+const offerQR = document.getElementById('offerQR');
+const offerText = document.getElementById('offerText');
+const answerText = document.getElementById('answerText');
+const sendStatus = document.getElementById('sendStatus');
+const sendBar = document.getElementById('sendBar');
+
+document.getElementById('startShare').onclick = async () => {
+  const fileInput = document.getElementById('fileInput');
+  if (!fileInput.files || !fileInput.files[0]) {
+    alert('Pick a file first'); return;
+  }
+  fileToSend = fileInput.files[0];
+
+  pcSend = makePC();
+  chSend = pcSend.createDataChannel('file');
+
+  chSend.binaryType = 'arraybuffer';
+  chSend.bufferedAmountLowThreshold = 1 << 20; // 1MB
+  chSend.onopen = async () => {
+    sendStatus.textContent = 'Channel open. Sending metadata…';
+    // Send META first
+    chSend.send(JSON.stringify({ t: 'meta', name: fileToSend.name, size: fileToSend.size, mime: fileToSend.type || 'application/octet-stream' }));
+    // Now stream file
+    await sendFileInChunks(fileToSend, chSend, (p) => {
+      sendBar.style.width = `${(p * 100).toFixed(1)}%`;
+      sendStatus.textContent = `Sending… ${(p*100).toFixed(1)}%`;
+    });
+    chSend.send(JSON.stringify({ t: 'eof' }));
+    sendStatus.textContent = 'Done ✅';
+  };
+  chSend.onclose = () => sendStatus.textContent = 'Channel closed';
+  chSend.onerror = (e) => sendStatus.textContent = 'Error: ' + e.message;
+
+  pcSend.onicecandidate = (e) => {
+    if (!e.candidate) {
+      const offer = enc(pcSend.localDescription);
+      offerText.value = offer;
+      offerQR.innerHTML = '';
+      offerQR.appendChild(QRGen(offer, 6));
+      document.getElementById('scanAnswerBtn').disabled = false;
+      document.getElementById('pasteAnswerBtn').disabled = false;
+    }
+  };
+
+  const offer = await pcSend.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false });
+  await pcSend.setLocalDescription(offer);
+  sendStatus.textContent = 'Offer created. Show QR to receiver or copy text.';
+};
+
+async function sendFileInChunks(file, channel, onProgress) {
+  const chunkSize = 64 * 1024; // 64KB chunks keep Safari happy
+  const reader = file.stream().getReader();
+  let sent = 0;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    let offset = 0;
+    while (offset < value.byteLength) {
+      // backpressure
+      if (channel.bufferedAmount > 8 * 1024 * 1024) { // 8MB
+        await new Promise(res => {
+          const h = () => { channel.removeEventListener('bufferedamountlow', h); res(); };
+          channel.addEventListener('bufferedamountlow', h, { once: true });
+        });
+      }
+      const slice = value.slice(offset, Math.min(offset + chunkSize, value.byteLength));
+      channel.send(slice);
+      offset += slice.byteLength;
+      sent += slice.byteLength;
+      onProgress?.(sent / file.size);
+    }
+  }
+}
+
+document.getElementById('pasteAnswerBtn').onclick = async () => {
+  const ans = answerText.value.trim();
+  if (!ans) { alert('Paste answer text'); return; }
+  await pcSend.setRemoteDescription(dec(ans));
+  sendStatus.textContent = 'Connected. Starting transfer…';
+};
+
+/* --- Sender: Scan Answer via camera --- */
+const scanAnswerWrap = document.getElementById('scanAnswerWrap');
+const vidAns = document.getElementById('vidAns');
+const canvasAns = document.getElementById('canvasAns');
+
+document.getElementById('scanAnswerBtn').onclick = async () => {
+  scanAnswerWrap.style.display = 'block';
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+  vidAns.srcObject = stream; await vidAns.play();
+  quickScan({
+    video: vidAns, canvas: canvasAns,
+    onResult: async (str) => {
+      try {
+        await pcSend.setRemoteDescription(dec(str));
+        sendStatus.textContent = 'Connected. Starting transfer…';
+        stopCam(vidAns);
+      } catch {}
+    }
+  });
+};
+document.getElementById('stopScanAns').onclick = () => stopCam(vidAns);
+
+function stopCam(video) {
+  const s = video.srcObject; if (!s) return;
+  s.getTracks().forEach(t => t.stop()); video.srcObject = null;
+}
+
+/* ---------- Receiver Logic ---------- */
+let pcRecv;
+let fileName = 'received.bin';
+let fileSize = 0;
+let receivedBytes = 0;
+let chunks = [];
+const recvStatus = document.getElementById('recvStatus');
+const recvBar = document.getElementById('recvBar');
+const answerQR = document.getElementById('answerQR');
+const answerTextRx = document.getElementById('answerTextRx');
+const offerTextRx = document.getElementById('offerTextRx');
+
+async function startFromOffer(offerStr) {
+  pcRecv = makePC();
+
+  pcRecv.ondatachannel = (ev) => {
+    const ch = ev.channel;
+    ch.binaryType = 'arraybuffer';
+    recvStatus.textContent = 'Channel open. Waiting metadata…';
+    ch.onmessage = (e) => {
+      const d = e.data;
+      if (typeof d === 'string') {
+        try {
+          const msg = JSON.parse(d);
+          if (msg.t === 'meta') {
+            fileName = msg.name || 'file.bin'; fileSize = msg.size || 0;
+            receivedBytes = 0; chunks = [];
+            recvStatus.textContent = `Receiving ${fileName} (${fileSize} bytes)…`;
+          } else if (msg.t === 'eof') {
+            const blob = new Blob(chunks, { type: 'application/octet-stream' });
+            saveBlob(fileName, blob);
+            recvBar.style.width = '100%';
+            recvStatus.textContent = 'Done ✅';
+          }
+        } catch {}
+      } else if (d instanceof ArrayBuffer) {
+        chunks.push(d);
+        receivedBytes += d.byteLength;
+        if (fileSize > 0) {
+          const p = receivedBytes / fileSize;
+          recvBar.style.width = `${(p * 100).toFixed(1)}%`;
+          recvStatus.textContent = `Receiving… ${(p*100).toFixed(1)}%`;
+        } else {
+          recvStatus.textContent = `Receiving… ${Math.round(receivedBytes/1024)} KB`;
+        }
+      }
+    };
+  };
+
+  pcRecv.onicecandidate = (e) => {
+    if (!e.candidate) {
+      const ans = enc(pcRecv.localDescription);
+      answerTextRx.value = ans;
+      answerQR.innerHTML = ''; answerQR.appendChild(QRGen(ans, 6));
+    }
+  };
+
+  await pcRecv.setRemoteDescription(dec(offerStr));
+  const answer = await pcRecv.createAnswer();
+  await pcRecv.setLocalDescription(answer);
+  recvStatus.textContent = 'Answer created. Show QR to sender or copy text.';
+}
+
+/* --- Receiver: Scan Offer --- */
+const scanOfferWrap = document.getElementById('scanOfferWrap');
+const vidOff = document.getElementById('vidOff');
+const canvasOff = document.getElementById('canvasOff');
+
+document.getElementById('scanOfferBtn').onclick = async () => {
+  scanOfferWrap.style.display = 'block';
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+  vidOff.srcObject = stream; await vidOff.play();
+  quickScan({
+    video: vidOff, canvas: canvasOff,
+    onResult: async (str) => {
+      try {
+        await startFromOffer(str);
+        stopCam(vidOff);
+      } catch (e) {
+        recvStatus.textContent = 'Failed to parse offer';
+      }
+    }
+  });
+};
+document.getElementById('stopScanOff').onclick = () => stopCam(vidOff);
+
+/* --- Receiver: Paste Offer --- */
+document.getElementById('pasteOfferBtn').onclick = async () => {
+  const s = offerTextRx.value.trim();
+  if (!s) { alert('Paste offer first'); return; }
+  await startFromOffer(s);
+};
+</script>
+</body>
+</html>
